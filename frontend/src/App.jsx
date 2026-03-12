@@ -1,44 +1,108 @@
-import { useState, useEffect } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { ThemeProvider, createTheme, CssBaseline } from "@mui/material";
+import RequireAuth from "./components/RequireAuth";
+import Navigation from "./components/Navigation";
 
-function App() {
-  const [count, setCount] = useState(0)
+import Dashboard from "./pages/Dashboard";
+import Register from "./pages/Register";
+import Login from "./pages/Login";
+import Logout from "./pages/Logout";
+import New from "./pages/New";
+import Archive from "./pages/Archive";
+import ViewEntry from "./pages/ViewEntry";
+import UserProfile from "./pages/UserProfile";
 
-  const [msg, setMsg] = useState("loading")
+const darkTheme = createTheme({
+  palette: {
+    mode: "dark",
+    primary: {
+      main: "#646cff",
+    },
+    secondary: {
+      main: "#535bf2",
+    },
+    background: {
+      default: "#242424",
+      paper: "#1a1a1a",
+    },
+  },
+  typography: {
+    fontFamily: "system-ui, Avenir, Helvetica, Arial, sans-serif",
+  },
+});
 
-  useEffect(() => {
-    fetch("/api/entry/latest")
-      .then(r => r.json())
-      .then(d => setMsg(d.id))
-  }, [])
+function AppRoutes() {
+  const location = useLocation();
+  const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
 
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Latest index: <code>{msg}</code>
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      {!isAuthPage && <Navigation />}
+      <Routes>
+
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/logout" element={<Logout />} />
+
+        <Route
+          path="/"
+          element={
+            <RequireAuth>
+              <Dashboard />
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/new"
+          element={
+            <RequireAuth>
+              <New />
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/archive"
+          element={
+            <RequireAuth>
+              <Archive />
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <RequireAuth>
+              <UserProfile />
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/entry/:id"
+          element={
+            <RequireAuth>
+              <ViewEntry />
+            </RequireAuth>
+          }
+        />
+
+      </Routes>
     </>
-  )
+  );
 }
 
-export default App
+function App() {
+  return (
+    <ThemeProvider theme={darkTheme}>
+      <CssBaseline />
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </ThemeProvider>
+  );
+}
 
+export default App;
