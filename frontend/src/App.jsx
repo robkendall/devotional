@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { ThemeProvider, createTheme, CssBaseline } from "@mui/material";
+import { Box, ThemeProvider, Typography, createTheme, CssBaseline } from "@mui/material";
 import RequireAuth from "./components/RequireAuth";
-import Navigation from "./components/Navigation";
+import Navigation, { DESKTOP_NAV_WIDTH } from "./components/Navigation";
 
 import Dashboard from "./pages/Dashboard";
 import Register from "./pages/Register";
@@ -37,10 +37,46 @@ function AppRoutes() {
   const location = useLocation();
   const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
 
+  const getPageTitle = () => {
+    const path = location.pathname;
+
+    if (path === "/") return "Dashboard";
+    if (path === "/new") return "New Entry";
+    if (path === "/archive") return "Archive";
+    if (path === "/how-to") return "How To";
+    if (path === "/prayer-journal") return "Prayer Journal";
+    if (path === "/profile") return "Profile";
+    if (path === "/logout") return "Logout";
+    if (path.startsWith("/entry/")) return "Entry";
+
+    return "";
+  };
+
+  const pageTitle = isAuthPage ? "" : getPageTitle();
+
   return (
-    <>
+    <Box sx={{ display: isAuthPage ? "block" : "flex", minHeight: "100vh" }}>
       {!isAuthPage && <Navigation />}
-      <Routes>
+      <Box sx={{ flex: 1, ml: isAuthPage ? 0 : { xs: 0, md: `${DESKTOP_NAV_WIDTH}px` } }}>
+        {!isAuthPage && pageTitle && (
+          <Box sx={{ px: { xs: 9, md: 4 }, pt: { xs: 3, md: 4 }, pb: 1, textAlign: "center" }}>
+            <Typography
+              variant="h4"
+              sx={{
+                color: "#f4f7fb",
+                fontSize: { xs: "1.5rem", md: "2rem" },
+                fontWeight: 600,
+                letterSpacing: "0.01em",
+                textDecoration: "underline",
+                textUnderlineOffset: "0.22em",
+                textDecorationThickness: "2px",
+              }}
+            >
+              {pageTitle}
+            </Typography>
+          </Box>
+        )}
+        <Routes>
 
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -109,8 +145,9 @@ function AppRoutes() {
           }
         />
 
-      </Routes>
-    </>
+        </Routes>
+      </Box>
+    </Box>
   );
 }
 
