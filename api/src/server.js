@@ -9,19 +9,6 @@ const pgSession = require("connect-pg-simple")(session);
 const pool = require('./db');
 const requireAuth = require("./middleware/auth");
 
-const REFLECTION_TYPES = [
-    "Principle to live by",
-    "Sin to forsake",
-    "Hope to celebrate",
-    "Example to follow",
-    "Insight about the church to apply",
-    "Command to obey",
-    "Error to avoid",
-    "Promise to claim",
-    "Perspective to adopt",
-];
-
-const PRR_LABELS = ["Pray", "Read", "Respond"];
 const EMAIL_DELAY_HOURS = 4;
 const EMAIL_CHECK_INTERVAL_MS = Number(process.env.EMAIL_CHECK_INTERVAL_MS || 60000);
 
@@ -41,41 +28,28 @@ function normalizeBooleanArray(value) {
 }
 
 function buildEntryEmailText(entry) {
-    const prrValues = normalizeBooleanArray(entry.prr_checkboxes);
-    const reflectionValues = normalizeBooleanArray(entry.reflection_types);
-
-    const selectedPrr = PRR_LABELS.filter((_, idx) => prrValues[idx]).join(", ") || "None";
-    const selectedReflections = REFLECTION_TYPES.filter((_, idx) => reflectionValues[idx]).join("\n- ") || "None";
-
     return [
-        `Devotional Entry - ${entry.date}`,
-        "",
         `Scripture: ${entry.scripture || "N/A"}`,
-        `Scripture Text: ${entry.scripture_text || "N/A"}`,
-        "",
-        `PRR Checked: ${selectedPrr}`,
-        "",
-        "Pray & Read",
-        entry.pray_read || "N/A",
-        "",
-        "Reflection Types",
-        selectedReflections === "None" ? "None" : `- ${selectedReflections}`,
-        "",
-        "What God Shows Us About Himself",
-        entry.god_about_himself || "N/A",
-        "",
-        "What God Shows Us About Us",
-        entry.god_about_us || "N/A",
-        "",
-        "What God Told Me Personally",
-        entry.god_told_me_personally || "N/A",
-        "",
-        "My Response",
-        entry.my_response || "N/A",
-        "",
-        "Takeaway",
-        entry.takeaway || "N/A",
+        `Takeaway: ${entry.takeaway || "N/A"}`,
     ].join("\n");
+}
+
+function isNonEmptyString(value) {
+    return typeof value === "string" && value.trim().length > 0;
+}
+
+function hasSelectedOption(value) {
+    const normalized = normalizeBooleanArray(value);
+    return normalized.some(Boolean);
+}
+
+function hasAllSelectedOptions(value) {
+    const normalized = normalizeBooleanArray(value);
+    return normalized.length > 0 && normalized.every(Boolean);
+}
+
+function isValidJournalType(value) {
+    return value === "praise" || value === "others" || value === "self";
 }
 
 function getTransporter() {
@@ -134,7 +108,7 @@ async function sendDueEntryEmails() {
                 await transporter.sendMail({
                     from: smtpFrom,
                     to: entry.user_email,
-                    subject: `Devotional Entry - ${entry.date}`,
+                    subject: `Reading and Reflecting - ${entry.date}`,
                     text: buildEntryEmailText(entry),
                 });
 
@@ -163,6 +137,8 @@ function startEmailScheduler() {
 }
 
 const app = express();
+app.set("trust proxy", true);
+
 app.use(express.json());
 app.use(session({
     store: new pgSession({
@@ -188,7 +164,6 @@ app.post('/api/entry', requireAuth, async (req, res) => {
         const {
             date,
             scripture,
-            scriptureText,
             prayRead,
             prrCheckboxes,
             reflectionTypes,
@@ -198,6 +173,25 @@ app.post('/api/entry', requireAuth, async (req, res) => {
             myResponse,
             takeaway,
         } = req.body;
+
+        const missingFields = [];
+
+        if (!isNonEmptyString(scripture)) missingFields.push("scripture");
+        if (!isNonEmptyString(prayRead)) missingFields.push("prayRead");
+        if (!isNonEmptyString(godAboutHimself)) missingFields.push("godAboutHimself");
+        if (!isNonEmptyString(godAboutUs)) missingFields.push("godAboutUs");
+        if (!isNonEmptyString(godToldMePersonally)) missingFields.push("godToldMePersonally");
+        if (!isNonEmptyString(myResponse)) missingFields.push("myResponse");
+        if (!isNonEmptyString(takeaway)) missingFields.push("takeaway");
+        if (!hasAllSelectedOptions(prrCheckboxes)) missingFields.push("prrCheckboxes");
+        if (!hasSelectedOption(reflectionTypes)) missingFields.push("reflectionTypes");
+
+        if (missingFields.length > 0) {
+            return res.status(400).json({
+                error: "Please fill in all required fields.",
+                missingFields,
+            });
+        }
 
         const result = await pool.query(
             `INSERT INTO entries (
@@ -218,7 +212,7 @@ app.post('/api/entry', requireAuth, async (req, res) => {
                 req.session.userId,
                 date,
                 scripture,
-                scriptureText || null,
+                null,
                 prayRead,
                 JSON.stringify(prrCheckboxes),
                 JSON.stringify(reflectionTypes),
@@ -255,7 +249,7 @@ app.post("/api/login", async (req, res) => {
 
     req.session.userId = user.id;
 
-    res.json({ success: true });
+    res.json({ success: true, seenHowTo: Boolean(user.seen_how_to) });
 });
 
 app.post("/api/register", async (req, res) => {
@@ -264,11 +258,14 @@ app.post("/api/register", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const result = await pool.query(
-        "INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING *",
-        [email, hashedPassword]
+        "INSERT INTO users (email, password_hash, seen_how_to) VALUES ($1, $2, $3) RETURNING *",
+        [email, hashedPassword, false]
     );
 
-    res.json(result.rows[0]);
+    const newUser = result.rows[0];
+    req.session.userId = newUser.id;
+
+    res.json({ success: true });
 });
 
 app.post("/api/logout", (req, res) => {
@@ -283,11 +280,25 @@ app.get("/api/me", async (req, res) => {
     }
 
     const result = await pool.query(
-        "SELECT id, email FROM users WHERE id = $1",
+        "SELECT id, email, seen_how_to FROM users WHERE id = $1",
         [req.session.userId]
     );
 
     res.json({ user: result.rows[0] });
+});
+
+app.post("/api/me/seen-how-to", requireAuth, async (req, res) => {
+    try {
+        await pool.query(
+            "UPDATE users SET seen_how_to = TRUE WHERE id = $1",
+            [req.session.userId]
+        );
+
+        return res.json({ success: true });
+    } catch (error) {
+        console.error("Error updating seen_how_to flag:", error);
+        return res.status(500).json({ error: "Failed to update user flag." });
+    }
 });
 
 app.get("/api/entries", requireAuth, async (req, res) => {
@@ -325,6 +336,35 @@ app.get("/api/entries", requireAuth, async (req, res) => {
     }
 });
 
+app.get("/api/entries/previous", requireAuth, async (req, res) => {
+    try {
+        const requestedDate = String(req.query.date || "").trim();
+
+        if (!requestedDate) {
+            return res.status(400).json({ error: "Missing date query parameter." });
+        }
+
+        const result = await pool.query(
+            `SELECT id, date, scripture
+             FROM entries
+             WHERE user_id = $1
+                             AND date::date < $2::date
+                         ORDER BY date::date DESC, created_at DESC
+             LIMIT 1`,
+            [req.session.userId, requestedDate]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({ scripture: null });
+        }
+
+        return res.json(result.rows[0]);
+    } catch (error) {
+        console.error("Error fetching previous entry:", error);
+        return res.status(500).json({ error: "Failed to fetch previous entry." });
+    }
+});
+
 app.get("/api/entries/:id", requireAuth, async (req, res) => {
     try {
         const result = await pool.query(
@@ -340,6 +380,252 @@ app.get("/api/entries/:id", requireAuth, async (req, res) => {
     } catch (error) {
         console.error('Error fetching entry:', error);
         res.status(500).json({ error: 'Failed to fetch entry' });
+    }
+});
+
+app.delete("/api/entries/:id", requireAuth, async (req, res) => {
+    try {
+        const result = await pool.query(
+            "DELETE FROM entries WHERE id = $1 AND user_id = $2 RETURNING id",
+            [req.params.id, req.session.userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Entry not found" });
+        }
+
+        return res.json({ success: true });
+    } catch (error) {
+        console.error("Error deleting entry:", error);
+        return res.status(500).json({ error: "Failed to delete entry" });
+    }
+});
+
+app.get("/api/journal-entries", requireAuth, async (req, res) => {
+    try {
+        const week = String(req.query.week || "").trim();
+
+        if (!week) {
+            return res.status(400).json({ error: "Missing week query parameter." });
+        }
+
+        const result = await pool.query(
+            `SELECT id, week, entry, entry_type, position
+             FROM journal_entries
+             WHERE user_id = $1 AND week = $2
+             ORDER BY position ASC, id ASC`,
+            [req.session.userId, week]
+        );
+
+        return res.json({ entries: result.rows });
+    } catch (error) {
+        console.error("Error fetching journal entries:", error);
+        return res.status(500).json({ error: "Failed to fetch journal entries." });
+    }
+});
+
+app.post("/api/journal-entries", requireAuth, async (req, res) => {
+    try {
+        const week = String(req.body.week || "").trim();
+        const entry = String(req.body.entry || "").trim();
+        const entryType = String(req.body.entryType || "").trim().toLowerCase();
+
+        if (!week || !entry || !isValidJournalType(entryType)) {
+            return res.status(400).json({ error: "Invalid request body." });
+        }
+
+        const maxPositionResult = await pool.query(
+            `SELECT COALESCE(MAX(position), -1) AS max_position
+             FROM journal_entries
+             WHERE user_id = $1 AND week = $2 AND entry_type = $3`,
+            [req.session.userId, week, entryType]
+        );
+
+        const nextPosition = Number(maxPositionResult.rows[0].max_position) + 1;
+
+        const insertResult = await pool.query(
+            `INSERT INTO journal_entries (user_id, week, entry, entry_type, position)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING id, week, entry, entry_type, position`,
+            [req.session.userId, week, entry, entryType, nextPosition]
+        );
+
+        return res.status(201).json({ entry: insertResult.rows[0] });
+    } catch (error) {
+        console.error("Error creating journal entry:", error);
+        return res.status(500).json({ error: "Failed to create journal entry." });
+    }
+});
+
+app.delete("/api/journal-entries/:id", requireAuth, async (req, res) => {
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        const entryResult = await client.query(
+            `SELECT id, week, entry_type
+             FROM journal_entries
+             WHERE id = $1 AND user_id = $2`,
+            [req.params.id, req.session.userId]
+        );
+
+        if (entryResult.rows.length === 0) {
+            await client.query("ROLLBACK");
+            return res.status(404).json({ error: "Journal entry not found." });
+        }
+
+        const { week, entry_type: entryType } = entryResult.rows[0];
+
+        await client.query(
+            "DELETE FROM journal_entries WHERE id = $1 AND user_id = $2",
+            [req.params.id, req.session.userId]
+        );
+
+        await client.query(
+            `WITH ordered AS (
+                SELECT id, ROW_NUMBER() OVER (ORDER BY position ASC, id ASC) - 1 AS new_position
+                FROM journal_entries
+                WHERE user_id = $1 AND week = $2 AND entry_type = $3
+             )
+             UPDATE journal_entries j
+             SET position = ordered.new_position,
+                 updated_at = NOW()
+             FROM ordered
+             WHERE j.id = ordered.id`,
+            [req.session.userId, week, entryType]
+        );
+
+        await client.query("COMMIT");
+        return res.json({ success: true });
+    } catch (error) {
+        await client.query("ROLLBACK");
+        console.error("Error deleting journal entry:", error);
+        return res.status(500).json({ error: "Failed to delete journal entry." });
+    } finally {
+        client.release();
+    }
+});
+
+app.put("/api/journal-entries/reorder", requireAuth, async (req, res) => {
+    const client = await pool.connect();
+
+    try {
+        const week = String(req.body.week || "").trim();
+        const entries = Array.isArray(req.body.entries) ? req.body.entries : [];
+
+        if (!week) {
+            return res.status(400).json({ error: "Missing week value." });
+        }
+
+        if (entries.length === 0) {
+            return res.json({ success: true });
+        }
+
+        const ids = [];
+
+        for (const item of entries) {
+            if (
+                !item ||
+                typeof item.id !== "number" ||
+                !isValidJournalType(String(item.entryType || "").trim().toLowerCase()) ||
+                typeof item.position !== "number"
+            ) {
+                return res.status(400).json({ error: "Invalid reorder payload." });
+            }
+            ids.push(item.id);
+        }
+
+        await client.query("BEGIN");
+
+        const ownershipResult = await client.query(
+            `SELECT id
+             FROM journal_entries
+             WHERE user_id = $1 AND week = $2 AND id = ANY($3::int[])`,
+            [req.session.userId, week, ids]
+        );
+
+        if (ownershipResult.rows.length !== ids.length) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({ error: "One or more entries are invalid." });
+        }
+
+        for (const item of entries) {
+            await client.query(
+                `UPDATE journal_entries
+                 SET entry_type = $1,
+                     position = $2,
+                     updated_at = NOW()
+                 WHERE id = $3 AND user_id = $4 AND week = $5`,
+                [String(item.entryType).trim().toLowerCase(), item.position, item.id, req.session.userId, week]
+            );
+        }
+
+        await client.query("COMMIT");
+        return res.json({ success: true });
+    } catch (error) {
+        await client.query("ROLLBACK");
+        console.error("Error reordering journal entries:", error);
+        return res.status(500).json({ error: "Failed to reorder journal entries." });
+    } finally {
+        client.release();
+    }
+});
+
+app.post("/api/journal-entries/copy-previous-week", requireAuth, async (req, res) => {
+    const client = await pool.connect();
+
+    try {
+        const week = String(req.body.week || "").trim();
+        const previousWeek = String(req.body.previousWeek || "").trim();
+
+        if (!week || !previousWeek) {
+            return res.status(400).json({ error: "Missing week or previousWeek." });
+        }
+
+        await client.query("BEGIN");
+
+        const existingResult = await client.query(
+            `SELECT COUNT(*)::int AS count
+             FROM journal_entries
+             WHERE user_id = $1 AND week = $2`,
+            [req.session.userId, week]
+        );
+
+        if (existingResult.rows[0].count > 0) {
+            await client.query("ROLLBACK");
+            return res.status(409).json({ error: "Current week already has entries." });
+        }
+
+        const previousEntriesResult = await client.query(
+            `SELECT entry, entry_type, position
+             FROM journal_entries
+             WHERE user_id = $1 AND week = $2
+             ORDER BY entry_type ASC, position ASC, id ASC`,
+            [req.session.userId, previousWeek]
+        );
+
+        if (previousEntriesResult.rows.length === 0) {
+            await client.query("ROLLBACK");
+            return res.status(404).json({ error: "No entries found for previous week." });
+        }
+
+        for (const item of previousEntriesResult.rows) {
+            await client.query(
+                `INSERT INTO journal_entries (user_id, week, entry, entry_type, position)
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [req.session.userId, week, item.entry, item.entry_type, item.position]
+            );
+        }
+
+        await client.query("COMMIT");
+        return res.json({ success: true, copied: previousEntriesResult.rows.length });
+    } catch (error) {
+        await client.query("ROLLBACK");
+        console.error("Error copying previous week entries:", error);
+        return res.status(500).json({ error: "Failed to copy previous week entries." });
+    } finally {
+        client.release();
     }
 });
 

@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+    Alert,
     Box,
+    IconButton,
     Typography,
     Table,
     TableBody,
@@ -13,6 +15,7 @@ import {
     TablePagination,
     CircularProgress,
 } from "@mui/material";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 
 export default function Archive() {
     const navigate = useNavigate();
@@ -20,6 +23,8 @@ export default function Archive() {
     const [page, setPage] = useState(0);
     const [totalCount, setTotalCount] = useState(0);
     const [loading, setLoading] = useState(false);
+    const [deletingId, setDeletingId] = useState(null);
+    const [deleteError, setDeleteError] = useState("");
 
     useEffect(() => {
         fetchEntries(page + 1);
@@ -48,6 +53,47 @@ export default function Archive() {
         setPage(newPage);
     };
 
+    const handleDeleteEntry = async (event, entryId) => {
+        event.stopPropagation();
+
+        const confirmed = window.confirm("Delete this entry? This cannot be undone.");
+        if (!confirmed) {
+            return;
+        }
+
+        setDeleteError("");
+        setDeletingId(entryId);
+
+        try {
+            const response = await fetch(`/api/entries/${entryId}`, {
+                method: "DELETE",
+                credentials: "include",
+            });
+
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                throw new Error(payload.error || "Failed to delete entry.");
+            }
+
+            const nextTotalCount = Math.max(totalCount - 1, 0);
+            const maxPage = Math.max(0, Math.ceil(nextTotalCount / 25) - 1);
+            const targetPage = Math.min(page, maxPage);
+
+            setTotalCount(nextTotalCount);
+
+            if (targetPage !== page) {
+                setPage(targetPage);
+            } else {
+                await fetchEntries(targetPage + 1);
+            }
+        } catch (error) {
+            console.error("Error deleting entry:", error);
+            setDeleteError(error.message || "Failed to delete entry.");
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
     return (
         <Box sx={{ display: "flex", justifyContent: "center", py: 4, minHeight: "100vh", width: "100%", pt: 10 }}>
             <Box sx={{ maxWidth: "3600px", width: { xs: "100%", md: "80%" }, mx: "auto", px: 2 }}>
@@ -61,6 +107,12 @@ export default function Archive() {
                     </Typography>
                 ) : (
                     <>
+                        {deleteError && (
+                            <Alert severity="error" sx={{ mb: 2 }}>
+                                {deleteError}
+                            </Alert>
+                        )}
+
                         <TableContainer component={Paper}>
                             <Table>
                                 <TableHead>
@@ -74,6 +126,7 @@ export default function Archive() {
                                         <TableCell sx={{ fontWeight: "bold", color: "primary.main" }}>
                                             Takeaway
                                         </TableCell>
+                                        <TableCell align="right" sx={{ width: 72 }} />
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -82,7 +135,15 @@ export default function Archive() {
                                             key={entry.id}
                                             hover
                                             onClick={() => navigate(`/entry/${entry.id}`)}
-                                            sx={{ cursor: "pointer" }}
+                                            sx={{
+                                                cursor: "pointer",
+                                                "& .delete-button": {
+                                                    opacity: deletingId === entry.id ? 1 : 0,
+                                                },
+                                                "&:hover .delete-button": {
+                                                    opacity: 1,
+                                                },
+                                            }}
                                         >
                                             <TableCell>
                                                 {new Date(entry.date).toLocaleDateString("en-US", {
@@ -94,6 +155,28 @@ export default function Archive() {
                                             </TableCell>
                                             <TableCell>{entry.scripture}</TableCell>
                                             <TableCell>{entry.takeaway}</TableCell>
+                                            <TableCell align="right">
+                                                <IconButton
+                                                    className="delete-button"
+                                                    aria-label="delete entry"
+                                                    onClick={(event) => handleDeleteEntry(event, entry.id)}
+                                                    disabled={deletingId === entry.id}
+                                                    sx={{
+                                                        color: "text.secondary",
+                                                        transition: "opacity 0.2s ease, color 0.2s ease, background-color 0.2s ease",
+                                                        "&:hover": {
+                                                            color: "error.main",
+                                                            backgroundColor: "rgba(211, 47, 47, 0.08)",
+                                                        },
+                                                    }}
+                                                >
+                                                    {deletingId === entry.id ? (
+                                                        <CircularProgress size={18} />
+                                                    ) : (
+                                                        <DeleteOutlineIcon fontSize="small" />
+                                                    )}
+                                                </IconButton>
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

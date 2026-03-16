@@ -34,11 +34,16 @@ export default function Login() {
             });
 
             if (res.ok) {
-                navigate("/"); // redirect to main app
+                const data = await res.json().catch(() => ({}));
+                if (data.seenHowTo) {
+                    navigate("/");
+                } else {
+                    navigate("/how-to");
+                }
             } else {
                 setError("Invalid email or password");
             }
-        } catch (err) {
+        } catch {
             setError("An error occurred. Please try again.");
         } finally {
             setLoading(false);

@@ -11,6 +11,8 @@ import New from "./pages/New";
 import Archive from "./pages/Archive";
 import ViewEntry from "./pages/ViewEntry";
 import UserProfile from "./pages/UserProfile";
+import HowTo from "./pages/HowTo";
+import PrayerJournal from "./pages/PrayerJournal";
 
 const darkTheme = createTheme({
   palette: {
@@ -76,6 +78,24 @@ function AppRoutes() {
           element={
             <RequireAuth>
               <UserProfile />
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/how-to"
+          element={
+            <RequireAuth>
+              <HowTo />
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/prayer-journal"
+          element={
+            <RequireAuth>
+              <PrayerJournal />
             </RequireAuth>
           }
         />

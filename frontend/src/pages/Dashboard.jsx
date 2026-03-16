@@ -12,6 +12,8 @@ export default function Dashboard() {
     const navItems = [
         { label: "New", path: "/new" },
         { label: "Archive", path: "/archive" },
+        { label: "How To", path: "/how-to" },
+        { label: "Prayer Journal", path: "/prayer-journal" },
         { label: "User Profile", path: "/profile" },
     ];
 

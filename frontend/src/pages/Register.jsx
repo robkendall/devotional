@@ -13,7 +13,6 @@ import {
 export default function Register() {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
-        username: '',
         email: '',
         password: '',
         confirmPassword: '',
@@ -44,7 +43,6 @@ export default function Register() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    username: formData.username,
                     email: formData.email,
                     password: formData.password,
                 }),
@@ -52,7 +50,7 @@ export default function Register() {
 
             if (!response.ok) throw new Error('Registration failed');
 
-            navigate('/login');
+            navigate('/how-to');
         } catch (err) {
             setError(err.message);
         } finally {
@@ -81,17 +79,6 @@ export default function Register() {
                     <Box component="form" onSubmit={handleSubmit} sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                         <TextField
                             fullWidth
-                            id="username"
-                            name="username"
-                            label="Username"
-                            value={formData.username}
-                            onChange={handleChange}
-                            required
-                            autoFocus
-                        />
-
-                        <TextField
-                            fullWidth
                             id="email"
                             name="email"
                             label="Email"
@@ -99,6 +86,7 @@ export default function Register() {
                             value={formData.email}
                             onChange={handleChange}
                             required
+                            autoFocus
                         />
 
                         <TextField

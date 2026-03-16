@@ -1,0 +1,4 @@
+robkendall.duckdns.org {
+reverse_proxy /api/* api:3001
+reverse_proxy frontend:5173
+}

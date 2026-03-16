@@ -9,6 +9,8 @@ export default function Navigation() {
         const path = location.pathname;
         if (path === "/new") return "New Entry";
         if (path === "/archive") return "Archive";
+        if (path === "/how-to") return "How To";
+        if (path === "/prayer-journal") return "Prayer Journal";
         if (path === "/profile") return "Profile";
         if (path === "/entry") return "Entry";
         if (path.startsWith("/entry/")) return "Entry";
@@ -37,7 +39,7 @@ export default function Navigation() {
                 boxSizing: "border-box",
             }}
         >
-            {/* Left side - New and Archive */}
+            {/* Left side - New, Archive, and Help */}
             <Box sx={{ display: "flex", gap: { xs: 0.5, sm: 3 }, flex: 1, minWidth: 0 }}>
                 <Button
                     variant="text"
@@ -67,6 +69,36 @@ export default function Navigation() {
                     }}
                 >
                     Archive
+                </Button>
+
+                <Button
+                    variant="text"
+                    onClick={() => navigate("/how-to")}
+                    sx={{
+                        color: "#646cff",
+                        minWidth: "auto",
+                        px: { xs: 0.5, sm: 1.5 },
+                        py: { xs: 0.25, sm: 0.75 },
+                        fontSize: { xs: "0.7rem", sm: "0.875rem" },
+                        "&:hover": { color: "#535bf2" },
+                    }}
+                >
+                    How To
+                </Button>
+
+                <Button
+                    variant="text"
+                    onClick={() => navigate("/prayer-journal")}
+                    sx={{
+                        color: "#646cff",
+                        minWidth: "auto",
+                        px: { xs: 0.5, sm: 1.5 },
+                        py: { xs: 0.25, sm: 0.75 },
+                        fontSize: { xs: "0.7rem", sm: "0.875rem" },
+                        "&:hover": { color: "#535bf2" },
+                    }}
+                >
+                    Prayer Journal
                 </Button>
             </Box>
 
