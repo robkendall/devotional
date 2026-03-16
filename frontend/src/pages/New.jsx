@@ -13,6 +13,7 @@ import {
     TextField,
     Typography,
 } from "@mui/material";
+import { apiFetch } from "../api/client";
 
 const REFLECTION_TYPES = [
     "Principle to live by",
@@ -129,9 +130,7 @@ export default function New() {
     useEffect(() => {
         const fetchPreviousScripture = async () => {
             try {
-                const response = await fetch(`/api/entries/previous?date=${isoDate}`, {
-                    credentials: "include",
-                });
+                const response = await apiFetch(`/api/entries/previous?date=${isoDate}`);
 
                 if (!response.ok) {
                     return;
@@ -186,9 +185,8 @@ export default function New() {
         };
 
         try {
-            const response = await fetch("/api/entry", {
+            const response = await apiFetch("/api/entry", {
                 method: "POST",
-                credentials: "include",
                 headers: {
                     "Content-Type": "application/json",
                 },

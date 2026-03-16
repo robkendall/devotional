@@ -16,6 +16,7 @@ import {
     CircularProgress,
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import { apiFetch } from "../api/client";
 
 export default function Archive() {
     const navigate = useNavigate();
@@ -33,9 +34,7 @@ export default function Archive() {
     const fetchEntries = async (pageNum) => {
         setLoading(true);
         try {
-            const response = await fetch(`/api/entries?page=${pageNum}`, {
-                credentials: "include",
-            });
+            const response = await apiFetch(`/api/entries?page=${pageNum}`);
 
             if (response.ok) {
                 const data = await response.json();
@@ -65,9 +64,8 @@ export default function Archive() {
         setDeletingId(entryId);
 
         try {
-            const response = await fetch(`/api/entries/${entryId}`, {
+            const response = await apiFetch(`/api/entries/${entryId}`, {
                 method: "DELETE",
-                credentials: "include",
             });
 
             if (!response.ok) {

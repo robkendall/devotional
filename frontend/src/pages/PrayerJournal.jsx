@@ -15,6 +15,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import CheckIcon from "@mui/icons-material/Check";
 import DeleteIcon from "@mui/icons-material/Delete";
+import { apiFetch } from "../api/client";
 
 const COLUMN_TYPES = ["praise", "others", "self"];
 const COLUMN_LABELS = {
@@ -112,9 +113,7 @@ export default function PrayerJournal() {
     const fetchWeekEntries = async (requestedWeek) => {
         setLoading(true);
         try {
-            const response = await fetch(`/api/journal-entries?week=${requestedWeek}`, {
-                credentials: "include",
-            });
+            const response = await apiFetch(`/api/journal-entries?week=${requestedWeek}`);
 
             if (!response.ok) {
                 throw new Error("Failed to load journal entries");
@@ -133,9 +132,8 @@ export default function PrayerJournal() {
     const persistReorder = async (nextGroupedEntries) => {
         const entries = buildReorderPayload(nextGroupedEntries);
 
-        await fetch("/api/journal-entries/reorder", {
+        await apiFetch("/api/journal-entries/reorder", {
             method: "PUT",
-            credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ week: weekKey, entries }),
         });
@@ -150,9 +148,8 @@ export default function PrayerJournal() {
         if (!value) return;
 
         try {
-            const response = await fetch("/api/journal-entries", {
+            const response = await apiFetch("/api/journal-entries", {
                 method: "POST",
-                credentials: "include",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     week: weekKey,
@@ -180,9 +177,8 @@ export default function PrayerJournal() {
 
     const handleDelete = async (entryId) => {
         try {
-            const response = await fetch(`/api/journal-entries/${entryId}`, {
+            const response = await apiFetch(`/api/journal-entries/${entryId}`, {
                 method: "DELETE",
-                credentials: "include",
             });
 
             if (!response.ok) {
@@ -278,9 +274,8 @@ export default function PrayerJournal() {
 
     const handleCopyPreviousWeek = async () => {
         try {
-            const response = await fetch("/api/journal-entries/copy-previous-week", {
+            const response = await apiFetch("/api/journal-entries/copy-previous-week", {
                 method: "POST",
-                credentials: "include",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ week: weekKey, previousWeek: previousWeekKey }),
             });

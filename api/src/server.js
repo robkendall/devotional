@@ -4,6 +4,9 @@ require("dotenv").config();
 const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
 const express = require('express');
+const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const session = require("express-session");
 const pgSession = require("connect-pg-simple")(session);
 const pool = require('./db');
@@ -11,6 +14,22 @@ const requireAuth = require("./middleware/auth");
 
 const EMAIL_DELAY_HOURS = 4;
 const EMAIL_CHECK_INTERVAL_MS = Number(process.env.EMAIL_CHECK_INTERVAL_MS || 60000);
+const PORT = Number(process.env.PORT || 3001);
+const NODE_ENV = process.env.NODE_ENV || "development";
+const IS_PRODUCTION = NODE_ENV === "production";
+const SESSION_SECRET = process.env.SESSION_SECRET;
+
+function logInfo(event, details) {
+    console.log(JSON.stringify({ level: "info", event, ...details }));
+}
+
+function logError(event, details) {
+    console.error(JSON.stringify({ level: "error", event, ...details }));
+}
+
+if (!SESSION_SECRET && IS_PRODUCTION) {
+    throw new Error("SESSION_SECRET is required in production.");
+}
 
 function normalizeBooleanArray(value) {
     if (Array.isArray(value)) return value;
@@ -139,20 +158,75 @@ function startEmailScheduler() {
 const app = express();
 app.set("trust proxy", true);
 
+app.use(helmet({
+    contentSecurityPolicy: false,
+}));
+
+const corsOrigins = String(process.env.CORS_ORIGIN || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+if (corsOrigins.length > 0) {
+    app.use(cors({
+        origin: corsOrigins,
+        credentials: true,
+    }));
+}
+
 app.use(express.json());
+
+app.use((req, res, next) => {
+    const startedAt = Date.now();
+    res.on("finish", () => {
+        logInfo("request", {
+            method: req.method,
+            path: req.originalUrl,
+            status: res.statusCode,
+            durationMs: Date.now() - startedAt,
+        });
+    });
+    next();
+});
+
+const authLimiter = rateLimit({
+    windowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+    max: Number(process.env.AUTH_RATE_LIMIT_MAX || 20),
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+app.use("/api/login", authLimiter);
+app.use("/api/register", authLimiter);
+
 app.use(session({
     store: new pgSession({
         pool: pool,
         tableName: "session"
     }),
-    secret: 'supersecret',
+    secret: SESSION_SECRET || "dev-only-secret",
     resave: false,
     saveUninitialized: false,
     cookie: {
         httpOnly: true,
+        secure: IS_PRODUCTION,
+        sameSite: process.env.SESSION_COOKIE_SAMESITE || "lax",
         maxAge: 1000 * 60 * 60 * 24
     }
 }));
+
+app.get("/healthz", (req, res) => {
+    res.status(200).json({ ok: true });
+});
+
+app.get("/readyz", async (req, res) => {
+    try {
+        await pool.query("SELECT 1");
+        return res.status(200).json({ ok: true });
+    } catch (error) {
+        return res.status(503).json({ ok: false, error: "database unavailable" });
+    }
+});
 
 app.get("/api/devotionals", requireAuth, async (req, res) => {
     const result = await pool.query("SELECT * FROM devotionals");
@@ -713,7 +787,21 @@ app.get("/api/test/email/config", async (req, res) => {
     });
 });
 
-app.listen(3001, () => {
-    console.log('API running on 3001');
+app.use((err, req, res, next) => {
+    logError("unhandled_error", {
+        path: req.originalUrl,
+        method: req.method,
+        message: err?.message || "Unknown error",
+    });
+
+    if (res.headersSent) {
+        return next(err);
+    }
+
+    return res.status(500).json({ error: "Internal server error" });
+});
+
+app.listen(PORT, () => {
+    logInfo("server_start", { port: PORT, env: NODE_ENV });
     startEmailScheduler();
 });

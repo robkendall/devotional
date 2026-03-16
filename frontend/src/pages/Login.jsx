@@ -9,6 +9,7 @@ import {
     Alert,
     Link,
 } from "@mui/material";
+import { apiFetch } from "../api/client";
 
 export default function Login() {
     const navigate = useNavigate();
@@ -24,9 +25,8 @@ export default function Login() {
         setLoading(true);
 
         try {
-            const res = await fetch("/api/login", {
+            const res = await apiFetch("/api/login", {
                 method: "POST",
-                credentials: "include",
                 headers: {
                     "Content-Type": "application/json"
                 },

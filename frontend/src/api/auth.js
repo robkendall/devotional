@@ -1,16 +1,23 @@
-export async function getCurrentUser() {
-    const res = await fetch("/api/me", {
-        credentials: "include"
-    });
+import { apiFetch } from "./client";
 
-    const data = await res.json();
-    return data.user;
+export async function getCurrentUser() {
+    try {
+        const res = await apiFetch("/api/me");
+
+        if (!res.ok) {
+            return null;
+        }
+
+        const data = await res.json().catch(() => ({ user: null }));
+        return data.user || null;
+    } catch {
+        return null;
+    }
 }
 
 export async function logout() {
-    const res = await fetch("/api/logout", {
+    const res = await apiFetch("/api/logout", {
         method: "POST",
-        credentials: "include"
     });
 
     const data = await res.json();

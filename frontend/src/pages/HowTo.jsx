@@ -1,6 +1,7 @@
 import { Box, Button, Divider, List, ListItem, Paper, Typography } from "@mui/material";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../api/client";
 
 const bulletSx = { display: "list-item", listStyleType: "disc", ml: 3, pl: 0.5, pb: 0.5 };
 const subBulletSx = { display: "list-item", listStyleType: "circle", ml: 5, pl: 0.5, pb: 0.5 };
@@ -9,9 +10,8 @@ export default function HowTo() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        fetch("/api/me/seen-how-to", {
+        apiFetch("/api/me/seen-how-to", {
             method: "POST",
-            credentials: "include",
         }).catch((error) => {
             console.error("Failed to update how-to viewed flag:", error);
         });
