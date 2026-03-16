@@ -1,16 +1,15 @@
+import { apiFetch } from "./client";
+
 export async function getCurrentUser() {
-    const res = await fetch("/api/me", {
-        credentials: "include"
-    });
+    const res = await apiFetch("/api/me");
 
     const data = await res.json();
     return data.user;
 }
 
 export async function logout() {
-    const res = await fetch("/api/logout", {
+    const res = await apiFetch("/api/logout", {
         method: "POST",
-        credentials: "include"
     });
 
     const data = await res.json();

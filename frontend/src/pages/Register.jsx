@@ -9,6 +9,7 @@ import {
     Alert,
     Link,
 } from '@mui/material';
+import { apiFetch } from '../api/client';
 
 export default function Register() {
     const navigate = useNavigate();
@@ -39,7 +40,7 @@ export default function Register() {
 
         setLoading(true);
         try {
-            const response = await fetch('/api/register', {
+            const response = await apiFetch('/api/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

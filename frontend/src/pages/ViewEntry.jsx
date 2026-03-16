@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
     Box,
     TextField,
-    Button,
     Typography,
     FormControlLabel,
     Checkbox,
@@ -15,8 +14,7 @@ import {
     CircularProgress,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import { apiFetch } from "../api/client";
 
 const REFLECTION_TYPES = [
     "Principle to live by",
@@ -34,19 +32,13 @@ export default function ViewEntry() {
     const { id } = useParams();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
-    const [showScripture, setShowScripture] = useState(false);
+    const showScripture = false;
     const [formData, setFormData] = useState(null);
     const [date, setDate] = useState("");
 
-    useEffect(() => {
-        fetchEntry();
-    }, [id]);
-
-    const fetchEntry = async () => {
+    const fetchEntry = useCallback(async () => {
         try {
-            const response = await fetch(`/api/entries/${id}`, {
-                credentials: "include",
-            });
+            const response = await apiFetch(`/api/entries/${id}`);
 
             if (response.ok) {
                 const entry = await response.json();
@@ -54,11 +46,11 @@ export default function ViewEntry() {
                     scripture: entry.scripture || "",
                     scriptureText: entry.scripture_text || "",
                     prayRead: entry.pray_read || "",
-                    prrCheckboxes: Array.isArray(entry.prr_checkboxes) 
-                        ? entry.prr_checkboxes 
+                    prrCheckboxes: Array.isArray(entry.prr_checkboxes)
+                        ? entry.prr_checkboxes
                         : JSON.parse(entry.prr_checkboxes),
-                    reflectionTypes: Array.isArray(entry.reflection_types) 
-                        ? entry.reflection_types 
+                    reflectionTypes: Array.isArray(entry.reflection_types)
+                        ? entry.reflection_types
                         : JSON.parse(entry.reflection_types),
                     godAboutHimself: entry.god_about_himself || "",
                     godAboutUs: entry.god_about_us || "",
@@ -67,11 +59,11 @@ export default function ViewEntry() {
                     takeaway: entry.takeaway || "",
                 });
                 setDate(new Date(entry.date).toLocaleDateString("en-US", {
-                                                    year: "numeric",
-                                                    month: "short",
-                                                    day: "numeric",
-                                                    timeZone: "UTC",
-                                                }));
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    timeZone: "UTC",
+                }));
             } else {
                 navigate("/archive");
             }
@@ -81,7 +73,11 @@ export default function ViewEntry() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id, navigate]);
+
+    useEffect(() => {
+        fetchEntry();
+    }, [fetchEntry]);
 
     if (loading) {
         return (

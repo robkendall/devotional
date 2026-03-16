@@ -1,0 +1,12 @@
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS seen_how_to BOOLEAN;
+
+UPDATE users
+SET seen_how_to = TRUE
+WHERE seen_how_to IS NULL;
+
+ALTER TABLE users
+ALTER COLUMN seen_how_to SET DEFAULT FALSE;
+
+ALTER TABLE users
+ALTER COLUMN seen_how_to SET NOT NULL;
