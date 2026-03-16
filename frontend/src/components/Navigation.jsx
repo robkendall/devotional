@@ -188,6 +188,8 @@ export default function Navigation() {
                     transition: "width 180ms ease",
                     overflowX: "hidden",
                 }}
+                onMouseEnter={() => setDesktopExpanded(true)}
+                onMouseLeave={() => setDesktopExpanded(false)}
             >
                 {railContent}
             </Box>
