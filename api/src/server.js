@@ -375,6 +375,46 @@ app.post("/api/me/seen-how-to", requireAuth, async (req, res) => {
     }
 });
 
+app.post("/api/me/change-password", requireAuth, async (req, res) => {
+    try {
+        const currentPassword = String(req.body.currentPassword || "");
+        const newPassword = String(req.body.newPassword || "");
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ error: "Current and new password are required." });
+        }
+
+        const result = await pool.query(
+            "SELECT id, password_hash FROM users WHERE id = $1",
+            [req.session.userId]
+        );
+
+        const user = result.rows[0];
+
+        if (!user) {
+            return res.status(404).json({ error: "User not found." });
+        }
+
+        const validCurrentPassword = await bcrypt.compare(currentPassword, user.password_hash);
+
+        if (!validCurrentPassword) {
+            return res.status(401).json({ error: "Current password is incorrect." });
+        }
+
+        const newHash = await bcrypt.hash(newPassword, 10);
+
+        await pool.query(
+            "UPDATE users SET password_hash = $1 WHERE id = $2",
+            [newHash, req.session.userId]
+        );
+
+        return res.json({ success: true });
+    } catch (error) {
+        console.error("Error changing password:", error);
+        return res.status(500).json({ error: "Failed to change password." });
+    }
+});
+
 app.get("/api/entries", requireAuth, async (req, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page) || 1);
