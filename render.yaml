@@ -3,7 +3,7 @@ services:
     name: devotional-api
     env: node
     rootDir: api
-    plan: starter
+    plan: free
     autoDeploy: true
     buildCommand: npm ci
     startCommand: npm run migrate && npm run start
