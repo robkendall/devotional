@@ -1,10 +1,18 @@
 import { apiFetch } from "./client";
 
 export async function getCurrentUser() {
-    const res = await apiFetch("/api/me");
+    try {
+        const res = await apiFetch("/api/me");
 
-    const data = await res.json();
-    return data.user;
+        if (!res.ok) {
+            return null;
+        }
+
+        const data = await res.json().catch(() => ({ user: null }));
+        return data.user || null;
+    } catch {
+        return null;
+    }
 }
 
 export async function logout() {

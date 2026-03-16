@@ -6,7 +6,21 @@ export default function RequireAuth({ children }) {
     const [user, setUser] = useState(undefined);
 
     useEffect(() => {
-        getCurrentUser().then(setUser);
+        let active = true;
+
+        getCurrentUser()
+            .then((resolvedUser) => {
+                if (!active) return;
+                setUser(resolvedUser);
+            })
+            .catch(() => {
+                if (!active) return;
+                setUser(null);
+            });
+
+        return () => {
+            active = false;
+        };
     }, []);
 
     if (user === undefined) return <div>Loading...</div>;
