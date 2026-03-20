@@ -1,17 +1,4 @@
 services:
-
-  db:
-    image: postgres:16
-    restart: always
-    environment:
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: devotional
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   api:
     build: ./api
     volumes:
@@ -20,7 +7,7 @@ services:
     ports:
       - "3001:3001"
     environment:
-      DATABASE_URL: "postgresql://app:password@db:5432/devotional"
+      DATABASE_URL: "postgresql://devotional_app:devotional_local_pw@shared-postgres:5432/devotional_local"
       SMTP_HOST: "smtp-relay.brevo.com"
       SMTP_PORT: "587"
       SMTP_USER: "${BREVO_SMTP_LOGIN}"
@@ -28,8 +15,9 @@ services:
       SMTP_FROM: "${BREVO_FROM_EMAIL}"
       SMTP_SECURE: "false"
       EMAIL_CHECK_INTERVAL_MS: "60000"
-    depends_on:
-      - db
+    networks:
+      - default
+      - shared_net
 
   frontend:
     build: ./frontend
@@ -39,6 +27,8 @@ services:
     ports:
       - "5173:5173"
     command: sh -c "npm install && npm run dev"
+    networks:
+      - default
 
   caddy:
     image: caddy:2
@@ -53,8 +43,14 @@ services:
     depends_on:
       - frontend
       - api
+    networks:
+      - default
 
 volumes:
-  postgres_data:
   caddy_data:
   caddy_config:
+
+
+networks:
+  shared_net:
+    external: true
