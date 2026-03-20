@@ -327,19 +327,31 @@ app.post("/api/login", async (req, res) => {
 });
 
 app.post("/api/register", async (req, res) => {
-    const { email, password } = req.body;
+    try {
+        const { email, password } = req.body;
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+        if (!isNonEmptyString(email) || !isNonEmptyString(password)) {
+            return res.status(400).json({ error: "Email and password are required." });
+        }
 
-    const result = await pool.query(
-        "INSERT INTO users (email, password_hash, seen_how_to) VALUES ($1, $2, $3) RETURNING *",
-        [email, hashedPassword, false]
-    );
+        const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = result.rows[0];
-    req.session.userId = newUser.id;
+        const result = await pool.query(
+            "INSERT INTO users (email, password_hash, seen_how_to) VALUES ($1, $2, $3) RETURNING *",
+            [email, hashedPassword, false]
+        );
 
-    res.json({ success: true });
+        const newUser = result.rows[0];
+        req.session.userId = newUser.id;
+
+        res.json({ success: true });
+    } catch (error) {
+        logError("register_error", { message: error.message });
+        if (error.code === "23505") {
+            return res.status(409).json({ error: "An account with that email already exists." });
+        }
+        res.status(500).json({ error: "Registration failed." });
+    }
 });
 
 app.post("/api/logout", (req, res) => {
