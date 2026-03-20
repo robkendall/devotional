@@ -15,7 +15,7 @@ services:
       - key: PORT
         value: 3001
       - key: SESSION_COOKIE_SAMESITE
-        value: lax
+        value: none
       - key: AUTH_RATE_LIMIT_WINDOW_MS
         value: 900000
       - key: AUTH_RATE_LIMIT_MAX
